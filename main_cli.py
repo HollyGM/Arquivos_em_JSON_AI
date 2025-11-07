@@ -21,7 +21,18 @@ from converter import file_utils
 
 
 def process_files(candidates, out_dir, max_bytes, force_ocr=False, clean_special_chars=True):
-    """Processa arquivos e gera JSONs."""
+    """Processa arquivos e gera JSONs.
+    
+    Args:
+        candidates: Lista de caminhos de arquivos a processar
+        out_dir: Diretório de saída para os arquivos JSON
+        max_bytes: Tamanho máximo em bytes por arquivo JSON
+        force_ocr: Se deve forçar OCR em PDFs
+        clean_special_chars: Se deve limpar caracteres especiais
+    
+    Returns:
+        Lista de caminhos dos arquivos JSON criados
+    """
     def log_progress(i, total, fp):
         logger.info(f"Lendo ({i}/{total}): {fp}")
     

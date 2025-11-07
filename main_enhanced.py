@@ -336,7 +336,8 @@ class EnhancedApp:
             docs = []
         
         # Track individual file errors if needed
-        logger.info(f"Text length: {len(docs[0]['text']) if docs else 0}")
+        if docs:
+            logger.info(f"Text length: {len(docs[0]['text'])}")
 
         logger.info(f"Docs prepared: {len(docs)}")
         if not docs:

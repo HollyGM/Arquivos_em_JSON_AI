@@ -4,7 +4,7 @@ Este módulo contém funções reutilizáveis para evitar duplicação de códig
 entre main.py, main_cli.py e main_enhanced.py.
 """
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Callable
 import logging
 
 from . import reader
@@ -44,7 +44,7 @@ def process_files_to_docs(
     candidates: List[str],
     use_ocr: bool = False,
     clean_special_chars: bool = True,
-    progress_callback=None
+    progress_callback: Optional[Callable[[int, int, str], None]] = None
 ) -> List[Dict[str, Any]]:
     """Processa lista de arquivos e retorna documentos estruturados.
     
