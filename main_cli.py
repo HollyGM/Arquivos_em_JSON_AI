@@ -17,49 +17,33 @@ from converter import reader, chunker
 from converter import ocr as conv_ocr
 from converter import output_formats
 from converter import pdf_to_word
-
-
-def collect_candidates(inputs, recursive: bool):
-    candidates = []
-    for p in inputs:
-        pth = Path(p)
-        if pth.is_dir():
-            if recursive:
-                for fp in pth.rglob("*"):
-                    if fp.is_file() and reader.is_supported(str(fp)):
-                        candidates.append(str(fp))
-            else:
-                for fp in pth.iterdir():
-                    if fp.is_file() and reader.is_supported(str(fp)):
-                        candidates.append(str(fp))
-        elif pth.is_file():
-            if reader.is_supported(str(pth)):
-                candidates.append(str(pth))
-    return candidates
+from converter import file_utils
 
 
 def process_files(candidates, out_dir, max_bytes, force_ocr=False, clean_special_chars=True):
-    docs = []
-    total = len(candidates)
-    for i, fp in enumerate(candidates, 1):
-        try:
-            logger.info(f"Lendo ({i}/{total}): {fp}")
-            suffix = Path(fp).suffix.lower()
-            if suffix == '.pdf':
-                text = conv_ocr.extract_text_with_ocr(fp, force_ocr=force_ocr, clean_special_chars=clean_special_chars)
-            else:
-                text = reader.extract_text(fp)
-                if clean_special_chars:
-                    text = conv_ocr.clean_text(text)
-        except Exception as e:
-            logger.exception("Erro lendo %s: %s", fp, e)
-            continue
-        docs.append({
-            "source_path": str(fp),
-            "filename": Path(fp).name,
-            "filetype": Path(fp).suffix.lower().lstrip('.'),
-            "text": text,
-        })
+    """Processa arquivos e gera JSONs.
+    
+    Args:
+        candidates: Lista de caminhos de arquivos a processar
+        out_dir: Diretório de saída para os arquivos JSON
+        max_bytes: Tamanho máximo em bytes por arquivo JSON
+        force_ocr: Se deve forçar OCR em PDFs
+        clean_special_chars: Se deve limpar caracteres especiais
+    
+    Returns:
+        Lista de caminhos dos arquivos JSON criados
+    """
+    def log_progress(i, total, fp):
+        logger.info(f"Lendo ({i}/{total}): {fp}")
+    
+    # Use utility function for processing
+    docs = file_utils.process_files_to_docs(
+        candidates,
+        use_ocr=force_ocr,
+        clean_special_chars=clean_special_chars,
+        progress_callback=log_progress
+    )
+    
     # Write JSON chunks
     return chunker.chunk_and_write(docs, Path(out_dir), max_bytes)
 
@@ -93,7 +77,7 @@ def main(argv=None):
         return
 
     inputs = args.inputs or [os.getcwd()]
-    candidates = collect_candidates(inputs, args.recursive)
+    candidates = file_utils.collect_files(inputs, args.recursive)
     if not candidates:
         logger.warning("Nenhum arquivo suportado encontrado nas entradas fornecidas.")
         return

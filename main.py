@@ -16,6 +16,7 @@ import os
 import sys
 import logging
 from converter import reader, chunker
+from converter import file_utils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -95,43 +96,24 @@ class App:
 
     def run_conversion(self, inputs, out_dir, max_bytes, recursive):
         self.set_progress("Iniciando...")
-        # gather file list
-        candidates = []
-        for p in inputs:
-            pth = Path(p)
-            if pth.is_dir():
-                if recursive:
-                    for fp in pth.rglob("*"):
-                        if fp.is_file() and reader.is_supported(str(fp)):
-                            candidates.append(str(fp))
-                else:
-                    for fp in pth.iterdir():
-                        if fp.is_file() and reader.is_supported(str(fp)):
-                            candidates.append(str(fp))
-            elif pth.is_file():
-                if reader.is_supported(str(pth)):
-                    candidates.append(str(pth))
+        
+        # Gather file list using utility function
+        candidates = file_utils.collect_files(inputs, recursive)
 
         if not candidates:
             self.set_progress("Nenhum arquivo suportado encontrado.")
             return
 
-        docs = []
-        total = len(candidates)
-        for i, fp in enumerate(candidates, 1):
-            try:
-                self.set_progress(f"Lendo ({i}/{total}): {fp}")
-                text = reader.extract_text(fp)
-            except Exception as e:
-                logger.exception("Erro lendo %s", fp)
-                # registrar como aviso e pular
-                continue
-            docs.append({
-                "source_path": str(fp),
-                "filename": Path(fp).name,
-                "filetype": Path(fp).suffix.lower().lstrip('.'),
-                "text": text,
-            })
+        # Process files using utility function
+        def progress_callback(i, total, fp):
+            self.set_progress(f"Lendo ({i}/{total}): {fp}")
+        
+        docs = file_utils.process_files_to_docs(
+            candidates,
+            use_ocr=False,
+            clean_special_chars=False,
+            progress_callback=progress_callback
+        )
 
         self.set_progress("Gerando JSONs...")
         try:

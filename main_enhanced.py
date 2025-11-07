@@ -16,6 +16,7 @@ import os
 import sys
 import logging
 from converter import reader, chunker
+from converter import file_utils
 
 logging.basicConfig(level=logging.INFO, filename='gui_debug.log', filemode='w', format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -306,52 +307,37 @@ class EnhancedApp:
         logger.info(f"Recursive: {recursive}")
         logger.info(f"Use OCR: {use_ocr}")
         logger.info(f"Clean chars: {clean_chars}")
-        # gather file list
-        candidates = []
-        for p in inputs:
-            pth = Path(p)
-            logger.info(f"Checking path: {p} -> {pth}")
-            if pth.is_dir():
-                logger.info(f"{p} is dir, recursive={recursive}")
-                if recursive:
-                    for fp in pth.rglob("*"):
-                        if fp.is_file() and reader.is_supported(str(fp)):
-                            candidates.append(str(fp))
-                            logger.info(f"Added file: {fp}")
-                else:
-                    for fp in pth.iterdir():
-                        if fp.is_file() and reader.is_supported(str(fp)):
-                            candidates.append(str(fp))
-                            logger.info(f"Added file: {fp}")
-            elif pth.is_file():
-                if reader.is_supported(str(pth)):
-                    candidates.append(str(pth))
-                    logger.info(f"Added file: {pth}")
-
+        
+        # Gather file list using utility function
+        candidates = file_utils.collect_files(inputs, recursive)
+        
         logger.info(f"Candidates found: {candidates}")
         if not candidates:
             self.set_progress("Nenhum arquivo suportado encontrado.")
             return
 
-        docs = []
+        # Process files using utility function
         errors = []
-        total = len(candidates)
-        for i, fp in enumerate(candidates, 1):
-            try:
-                self.set_progress(f"Lendo ({i}/{total}): {fp}")
-                logger.info(f"Reading file: {fp}")
-                text = reader.extract_text(fp, use_ocr=use_ocr, clean_special_chars=clean_chars)
-                logger.info(f"Text length: {len(text)}")
-            except Exception as e:
-                logger.exception("Erro lendo %s", fp)
-                errors.append(f"{Path(fp).name}: {e}")
-                continue
-            docs.append({
-                "source_path": str(fp),
-                "filename": Path(fp).name,
-                "filetype": Path(fp).suffix.lower().lstrip('.'),
-                "text": text,
-            })
+        
+        def progress_callback(i, total, fp):
+            self.set_progress(f"Lendo ({i}/{total}): {fp}")
+            logger.info(f"Reading file: {fp}")
+        
+        try:
+            docs = file_utils.process_files_to_docs(
+                candidates,
+                use_ocr=use_ocr,
+                clean_special_chars=clean_chars,
+                progress_callback=progress_callback
+            )
+        except Exception as e:
+            logger.exception("Erro processando arquivos")
+            errors.append(f"Erro geral: {e}")
+            docs = []
+        
+        # Track individual file errors if needed
+        if docs:
+            logger.info(f"Text length: {len(docs[0]['text'])}")
 
         logger.info(f"Docs prepared: {len(docs)}")
         if not docs:
