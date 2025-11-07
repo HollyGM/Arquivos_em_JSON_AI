@@ -10,7 +10,7 @@ This repository contains a Python-based document converter that transforms text 
 
 - `main.py` - Main GUI application using Tkinter
 - `main_cli.py` - Command-line interface version
-- `main_enhanced.py` - Enhanced version with additional features
+- `main_enhanced.py` - Enhanced GUI with OCR, PDF-to-Word conversion, character cleaning, and multi-format output (JSON/TXT/PDF)
 - `converter/` - Core conversion modules
   - `reader.py` - File reading logic for txt, pdf, docx, doc
   - `chunker.py` - Document chunking and JSON generation
@@ -154,7 +154,7 @@ Generated JSON files should follow this structure:
 
 ## Known Issues and Limitations
 
-- `.doc` (binary format) support is "best effort" and may require additional system dependencies
+- `.doc` (binary format) support requires the `textract` library and platform-specific system dependencies (e.g., antiword on Linux, Microsoft Office components on Windows). If not available, .doc files will be skipped with a warning.
 - OCR functionality requires Tesseract installation
 - GUI is designed for Windows but should work on other platforms with Tkinter support
 - Large files may take significant time to process
@@ -185,7 +185,7 @@ Generated JSON files should follow this structure:
 
 ## Project-Specific Notes
 
-- The project uses a mix of Portuguese and English in comments and variable names - maintain consistency within each file
+- The project currently uses a mix of Portuguese and English in comments and variable names - when contributing, maintain consistency within each file and consider gradually moving toward English-only for better international collaboration
 - Batch processing is controlled by max file size (in MB) parameter
 - All generated JSONs include metadata for AI model compatibility
 - The GUI uses threading to prevent UI freezing during conversion
