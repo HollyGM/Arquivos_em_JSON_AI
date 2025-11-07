@@ -1,2 +1,8 @@
 .github/instructions/kluster-code-verify.instructions.md
 .kluster
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+*.log
