@@ -1,0 +1,21 @@
+================================================================================
+RELATÓRIO DE DOCUMENTOS PROCESSADOS
+================================================================================
+
+ID do Lote: 4066ff50-c515-4da9-9462-b85ef2e2de27
+Criado em: 2025-11-07T15:21:22.298829Z
+Total de documentos: 1
+
+--------------------------------------------------------------------------------
+DOCUMENTO 1
+--------------------------------------------------------------------------------
+Arquivo: test_sample.txt
+Tipo: txt
+Caminho: test_sample.txt
+Caracteres: 384
+Chunk: 0
+
+CONTEÚDO:
+----------------------------------------
+Este é um arquivo de teste para verificar as novas funcionalidades implementadas. O sistema agora suporta: 1. OCR para PDFs escaneados 2. Conversão de PDF para Word 3. Limpeza de caracteres especiais 4. Múltiplos formatos de saída (JSON, TXT, PDF) Caracteres especiais para teste: ()_:"?[];\',./ Este texto será processado e convertido para JSON, e opcionalmente para outros formatos.
+

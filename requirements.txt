@@ -1,0 +1,13 @@
+pdfminer.six>=20200726
+python-docx>=0.8.11
+chardet>=4.0.0
+tqdm>=4.0.0
+pytest>=6.0
+# OCR dependencies
+pytesseract>=0.3.10
+Pillow>=8.0.0
+pdf2image>=1.16.0
+# Output format generation
+reportlab>=3.6.0
+# Optional, for better .doc support (may require system deps)
+# textract>=1.6.5

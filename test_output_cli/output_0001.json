@@ -1,0 +1,22 @@
+{
+  "batch_id": "32a59e6e-9f15-4221-b299-ee5247fc5c60",
+  "created_at": "2025-11-07T16:45:15.263189Z",
+  "documents": [
+    {
+      "source_path": "test.txt",
+      "filename": "test.txt",
+      "filetype": "txt",
+      "chunk_index": 0,
+      "text": "RELATÓRIO DE DOCUMENTOS PROCESSADOS Total de documentos: 1 -------------------------------------------------------------------------------- DOCUMENTO 1 -------------------------------------------------------------------------------- CONTEÚDO: ---------------------------------------- Test",
+      "char_count": 288
+    },
+    {
+      "source_path": "test_sample.txt",
+      "filename": "test_sample.txt",
+      "filetype": "txt",
+      "chunk_index": 0,
+      "text": "Este é um arquivo de teste para verificar as novas funcionalidades implementadas. O sistema agora suporta: 1. OCR para PDFs escaneados 2. Conversão de PDF para Word 3. Limpeza de caracteres especiais 4. Múltiplos formatos de saída (JSON, TXT, PDF) Caracteres especiais para teste: ()_:\"?[];\\',./ Este texto será processado e convertido para JSON, e opcionalmente para outros formatos.",
+      "char_count": 384
+    }
+  ]
+}

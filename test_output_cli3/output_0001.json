@@ -1,0 +1,14 @@
+{
+  "batch_id": "5f544c5d-a2c4-41a7-bef8-ab4f808337c3",
+  "created_at": "2025-11-07T16:46:18.841669Z",
+  "documents": [
+    {
+      "source_path": "test.txt",
+      "filename": "test.txt",
+      "filetype": "txt",
+      "chunk_index": 0,
+      "text": "RELATÓRIO DE DOCUMENTOS PROCESSADOS Total de documentos: 1 -------------------------------------------------------------------------------- DOCUMENTO 1 -------------------------------------------------------------------------------- CONTEÚDO: ---------------------------------------- Test",
+      "char_count": 288
+    }
+  ]
+}

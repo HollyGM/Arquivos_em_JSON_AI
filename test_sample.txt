@@ -1,0 +1,11 @@
+Este é um arquivo de teste para verificar as novas funcionalidades implementadas.
+
+O sistema agora suporta:
+1. OCR para PDFs escaneados
+2. Conversão de PDF para Word
+3. Limpeza de caracteres especiais
+4. Múltiplos formatos de saída (JSON, TXT, PDF)
+
+Caracteres especiais para teste: @#$%^&*()_+{}|:"<>?[];\',./
+
+Este texto será processado e convertido para JSON, e opcionalmente para outros formatos.
