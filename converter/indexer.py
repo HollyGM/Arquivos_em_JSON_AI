@@ -71,17 +71,30 @@ def build_index(out_dir: Path, json_files: List[str]) -> Path:
         logger.warning("Nenhum texto encontrado para indexar.")
         return index_dir
 
-    # Configura o vectorizer. stop_words='english' pode ser trocado ou removido.
-    # Para português, o ideal seria uma lista de stopwords. Por simplicidade, não usamos aqui.
-    # Usamos min_df=1 para garantir que o vocabulário seja construído mesmo com poucos documentos (útil para testes)
+    # Configura o vectorizer TF-IDF
+    # Ajustamos os parâmetros para funcionar com qualquer tamanho de corpus
+    num_docs = len(corpus)
+    
+    # Para corpus muito pequenos (1-2 documentos), ajustamos max_df e min_df
+    if num_docs == 1:
+        max_df_value = 1.0
+        min_df_value = 1
+    elif num_docs == 2:
+        max_df_value = 1.0
+        min_df_value = 1
+    else:
+        # Para corpus maiores, usamos configurações mais restritivas
+        max_df_value = 0.85
+        min_df_value = 1
+    
     vectorizer = TfidfVectorizer(
         ngram_range=(1, 2), 
-        max_df=0.85, 
-        min_df=1, 
+        max_df=max_df_value, 
+        min_df=min_df_value, 
         stop_words=None # Pode ser personalizado com uma lista de stop words
     )
     
-    logger.info(f"Criando matriz TF-IDF para {len(corpus)} documentos...")
+    logger.info(f"Criando matriz TF-IDF para {num_docs} documentos...")
     tfidf_matrix = vectorizer.fit_transform(corpus)
     logger.info(f"Matriz criada com shape: {tfidf_matrix.shape}")
 

@@ -27,12 +27,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def json_to_txt(json_data: Dict[str, Any], output_path: str = None) -> str:
+def json_to_txt(json_data: Dict[str, Any], output_path: str = None, embed_index: bool = False) -> str:
     """Converte dados JSON para formato TXT legível.
     
     Args:
         json_data: Dados JSON para converter
         output_path: Caminho de saída (opcional)
+        embed_index: Se True, inclui um índice de documentos no início
     
     Returns:
         Caminho do arquivo TXT criado
@@ -57,6 +58,24 @@ def json_to_txt(json_data: Dict[str, Any], output_path: str = None) -> str:
             f.write(f"Criado em: {json_data['created_at']}\n")
         
         f.write(f"Total de documentos: {len(json_data.get('documents', []))}\n\n")
+        
+        # Índice de documentos (se solicitado)
+        if embed_index:
+            f.write("=" * 80 + "\n")
+            f.write("ÍNDICE DE DOCUMENTOS\n")
+            f.write("=" * 80 + "\n\n")
+            
+            for i, doc in enumerate(json_data.get('documents', []), 1):
+                filename = doc.get('filename', 'Sem nome')
+                chunk_idx = doc.get('chunk_index', 0)
+                char_count = doc.get('char_count', 0)
+                
+                if chunk_idx > 0:
+                    f.write(f"{i}. {filename} (Parte {chunk_idx + 1}) - {char_count} caracteres\n")
+                else:
+                    f.write(f"{i}. {filename} - {char_count} caracteres\n")
+            
+            f.write("\n" + "=" * 80 + "\n\n")
         
         # Documentos
         for i, doc in enumerate(json_data.get('documents', []), 1):
@@ -92,12 +111,13 @@ def json_to_txt(json_data: Dict[str, Any], output_path: str = None) -> str:
     return str(output_path)
 
 
-def json_to_pdf(json_data: Dict[str, Any], output_path: str = None) -> str:
+def json_to_pdf(json_data: Dict[str, Any], output_path: str = None, embed_index: bool = False) -> str:
     """Converte dados JSON para formato PDF.
     
     Args:
         json_data: Dados JSON para converter
         output_path: Caminho de saída (opcional)
+        embed_index: Se True, inclui um índice de documentos no início
     
     Returns:
         Caminho do arquivo PDF criado
@@ -160,6 +180,26 @@ def json_to_pdf(json_data: Dict[str, Any], output_path: str = None) -> str:
     
     content.append(Paragraph(f"<b>Total de documentos:</b> {len(json_data.get('documents', []))}", styles['Normal']))
     content.append(Spacer(1, 20))
+    
+    # Índice de documentos (se solicitado)
+    if embed_index:
+        content.append(Paragraph("ÍNDICE DE DOCUMENTOS", heading_style))
+        content.append(Spacer(1, 12))
+        
+        for i, doc in enumerate(json_data.get('documents', []), 1):
+            filename = doc.get('filename', 'Sem nome')
+            chunk_idx = doc.get('chunk_index', 0)
+            char_count = doc.get('char_count', 0)
+            
+            if chunk_idx > 0:
+                index_entry = f"{i}. <b>{filename}</b> (Parte {chunk_idx + 1}) - {char_count} caracteres"
+            else:
+                index_entry = f"{i}. <b>{filename}</b> - {char_count} caracteres"
+            
+            content.append(Paragraph(index_entry, styles['Normal']))
+        
+        content.append(Spacer(1, 20))
+        content.append(PageBreak())
     
     # Documentos
     for i, doc in enumerate(json_data.get('documents', []), 1):
@@ -291,13 +331,16 @@ def convert_json_files(
     output_format: str = 'txt',
     output_dir: str = None,
     json_files: Optional[List[str]] = None,
+    embed_index: bool = False,
 ) -> List[str]:
     """Converte múltiplos arquivos JSON para o formato especificado.
     
     Args:
         json_dir: Diretório contendo arquivos JSON
-        output_format: Formato de saída ('txt' ou 'pdf')
+        output_format: Formato de saída ('txt', 'pdf' ou 'mrd')
         output_dir: Diretório de saída (opcional)
+        json_files: Lista de arquivos JSON específicos (opcional)
+        embed_index: Se True, inclui índice de documentos nos arquivos de saída
     
     Returns:
         Lista de caminhos dos arquivos convertidos
@@ -335,12 +378,12 @@ def convert_json_files(
             
             # Converter
             if output_format.lower() == 'txt':
-                result_path = json_to_txt(json_data, str(output_path))
+                result_path = json_to_txt(json_data, str(output_path), embed_index=embed_index)
             elif output_format.lower() == 'pdf':
-                result_path = json_to_pdf(json_data, str(output_path))
+                result_path = json_to_pdf(json_data, str(output_path), embed_index=embed_index)
             elif output_format.lower() == 'mrd':
                 # MRD inclui índice local por batch
-                result_path = json_to_mrd(json_data, str(output_path), embed_index=True)
+                result_path = json_to_mrd(json_data, str(output_path), embed_index=embed_index)
             else:
                 logger.error(f"Formato não suportado: {output_format}")
                 continue

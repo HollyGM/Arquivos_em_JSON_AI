@@ -110,7 +110,7 @@ class EnhancedApp:
         ttk.Checkbutton(formats_inner, text="MRD", variable=self.output_mrd_var).pack(side=tk.LEFT, padx=10)
 
         self.embed_index_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(formats_inner, text="Incluir índice local nos JSONs", variable=self.embed_index_var).pack(side=tk.LEFT, padx=10)
+        ttk.Checkbutton(formats_inner, text="Incluir índice de documentos nos arquivos de saída", variable=self.embed_index_var).pack(side=tk.LEFT, padx=10)
 
         # Progress e controles
         self.progress = ttk.Label(frm, text="Pronto")
@@ -187,6 +187,10 @@ class EnhancedApp:
         format_frame.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         ttk.Radiobutton(format_frame, text="TXT", variable=self.format_var, value="txt").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(format_frame, text="PDF", variable=self.format_var, value="pdf").pack(side=tk.LEFT, padx=5)
+
+        # Opção de incluir índice
+        self.convert_embed_index_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(convert_config_frame, text="Incluir índice de documentos", variable=self.convert_embed_index_var).grid(row=2, column=1, sticky="w", padx=5, pady=2)
 
         convert_config_frame.columnconfigure(1, weight=1)
 
@@ -299,8 +303,10 @@ class EnhancedApp:
             messagebox.showerror("Erro", "Escolha a pasta de saída.")
             return
 
+        embed_index = self.convert_embed_index_var.get()
+        
         t = threading.Thread(target=self.run_format_conversion, args=(
-            json_folder, out_dir, self.format_var.get()
+            json_folder, out_dir, self.format_var.get(), embed_index
         ))
         t.start()
 
@@ -394,24 +400,28 @@ class EnhancedApp:
                 self.set_progress("Gerando formatos adicionais...")
                 try:
                     from converter.output_formats import convert_json_files
+                    
+                    # Obter configuração do índice
+                    include_index = self.embed_index_var.get()
+                    
                     txt_paths = []
                     pdf_paths = []
                     if output_txt:
                         txt_dir = Path(out_dir) / 'txt_output'
-                        txt_paths = convert_json_files(out_dir, 'txt', txt_dir, json_files=json_files)
+                        txt_paths = convert_json_files(out_dir, 'txt', txt_dir, json_files=json_files, embed_index=include_index)
                         if txt_paths:
                             summary_lines.append(f"{len(txt_paths)} arquivo(s) TXT em {txt_dir}")
                         logger.info("TXT generated")
 
                     if output_pdf:
                         pdf_dir = Path(out_dir) / 'pdf_output'
-                        pdf_paths = convert_json_files(out_dir, 'pdf', pdf_dir, json_files=json_files)
+                        pdf_paths = convert_json_files(out_dir, 'pdf', pdf_dir, json_files=json_files, embed_index=include_index)
                         if pdf_paths:
                             summary_lines.append(f"{len(pdf_paths)} arquivo(s) PDF em {pdf_dir}")
                         logger.info("PDF generated")
                     if self.output_mrd_var.get():
                         mrd_dir = Path(out_dir) / 'mrd_output'
-                        mrd_paths = convert_json_files(out_dir, 'mrd', mrd_dir, json_files=json_files)
+                        mrd_paths = convert_json_files(out_dir, 'mrd', mrd_dir, json_files=json_files, embed_index=include_index)
                         if mrd_paths:
                             summary_lines.append(f"{len(mrd_paths)} arquivo(s) MRD em {mrd_dir}")
                         logger.info("MRD generated")
@@ -459,13 +469,13 @@ class EnhancedApp:
             messagebox.showerror("Erro", f"Erro durante conversão: {e}")
             self.set_pdf_progress("Erro")
 
-    def run_format_conversion(self, json_folder, out_dir, output_format):
+    def run_format_conversion(self, json_folder, out_dir, output_format, embed_index=False):
         self.set_convert_progress("Iniciando conversão de formato...")
         
         try:
             from converter.output_formats import convert_json_files
             
-            converted_files = convert_json_files(json_folder, output_format, out_dir)
+            converted_files = convert_json_files(json_folder, output_format, out_dir, embed_index=embed_index)
             
             if not converted_files:
                 self.set_convert_progress("Nenhum arquivo convertido.")
