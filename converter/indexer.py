@@ -1,49 +1,55 @@
-"""Indexador simples para acelerar localização de trechos de texto.
+"""Indexador baseado em TF-IDF para busca de texto relevante.
 
 Estratégia:
-- Construir um inverted index (termo -> lista de referências)
-- Cada referência contém: arquivo JSON, posição do documento no batch, chunk_index, filename e contagem de ocorrências
-- Salvar índice em JSON em out_dir/index.json
-- Fornecer função de consulta simples baseada em contagem de termos coincidentes
-
-Este indexador é leve (não embeddings) e melhora muito a filtragem inicial de trechos
-relevantes antes de enviar conteúdo ao modelo AI.
+- Usa TfidfVectorizer do scikit-learn para criar uma representação numérica dos textos.
+- Constrói uma matriz TF-IDF onde cada linha é um chunk de documento.
+- Salva o `vectorizer` treinado, a matriz TF-IDF e os metadados dos chunks.
+- A consulta é feita transformando a query com o mesmo vectorizer e calculando
+  a similaridade de cosseno com todos os chunks para encontrar os mais relevantes.
 """
 from pathlib import Path
 import json
-import re
-from collections import defaultdict, Counter
+import joblib
 from typing import List, Dict, Any
 import logging
 
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+except ImportError:
+    TfidfVectorizer = None
+    cosine_similarity = None
+
+
 logger = logging.getLogger(__name__)
-
-_TOKEN_RE = re.compile(r"\w+", re.UNICODE)
-
-
-def _normalize(text: str) -> List[str]:
-    if not text:
-        return []
-    tokens = _TOKEN_RE.findall(text.lower())
-    return tokens
 
 
 def build_index(out_dir: Path, json_files: List[str]) -> Path:
-    """Constrói e salva um índice invertido a partir dos arquivos JSON gerados.
+    """Constrói e salva um índice TF-IDF a partir dos arquivos JSON gerados.
+
+    Salva três arquivos no diretório de índice:
+    - `tfidf_vectorizer.joblib`: O objeto TfidfVectorizer treinado.
+    - `tfidf_matrix.joblib`: A matriz TF-IDF esparsa.
+    - `metadata.json`: Uma lista de metadados para cada documento/chunk.
 
     Args:
-        out_dir: diretório onde salvar o índice
-        json_files: lista de caminhos (strings) para os arquivos JSON gerados
+        out_dir: Diretório onde salvar o índice.
+        json_files: Lista de caminhos para os arquivos JSON.
 
     Returns:
-        Path para o arquivo de índice salvo (out_dir/index.json)
+        Path para o diretório do índice.
     """
-    out_dir = Path(out_dir)
-    postings: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    total_docs = 0
+    if TfidfVectorizer is None:
+        raise RuntimeError("scikit-learn não está instalado. Execute: pip install scikit-learn")
 
-    for jf in json_files:
-        jf_path = out_dir / jf if not Path(jf).is_absolute() else Path(jf)
+    index_dir = out_dir / "tfidf_index"
+    index_dir.mkdir(exist_ok=True)
+
+    corpus = []
+    metadata = []
+    
+    for jf_name in json_files:
+        jf_path = out_dir / jf_name if not Path(jf_name).is_absolute() else Path(jf_name)
         try:
             with open(jf_path, "r", encoding="utf-8") as f:
                 batch = json.load(f)
@@ -51,72 +57,93 @@ def build_index(out_dir: Path, json_files: List[str]) -> Path:
             logger.warning(f"Falha ao ler JSON para indexação: {jf_path}: {e}")
             continue
 
-        docs = batch.get("documents") or []
-        for doc_pos, doc in enumerate(docs):
-            total_docs += 1
-            text = doc.get("text", "") or ""
-            tokens = _normalize(text)
-            if not tokens:
-                continue
-            counts = Counter(tokens)
-            ref = {
-                "json": str(jf_path.name),
+        for doc_pos, doc in enumerate(batch.get("documents", [])):
+            corpus.append(doc.get("text", ""))
+            metadata.append({
+                "json_file": jf_path.name,
                 "doc_pos": doc_pos,
                 "chunk_index": doc.get("chunk_index", 0),
                 "filename": doc.get("filename"),
-                "char_count": doc.get("char_count", len(text)),
-            }
-            for term, freq in counts.items():
-                entry = dict(ref)
-                entry["occurrences"] = freq
-                postings[term].append(entry)
+                "char_count": doc.get("char_count", len(doc.get("text", ""))),
+            })
 
-    index = {
-        "meta": {
-            "total_docs_indexed": total_docs,
-        },
-        "postings": postings,
-    }
+    if not corpus:
+        logger.warning("Nenhum texto encontrado para indexar.")
+        return index_dir
 
-    idx_path = out_dir / "index.json"
-    # Convert defaultdict to normal dict for JSON serialization
-    serializable = {k: v for k, v in postings.items()}
-    out_obj = {"meta": index["meta"], "postings": serializable}
+    # Configura o vectorizer. stop_words='english' pode ser trocado ou removido.
+    # Para português, o ideal seria uma lista de stopwords. Por simplicidade, não usamos aqui.
+    # Usamos min_df=1 para garantir que o vocabulário seja construído mesmo com poucos documentos (útil para testes)
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1, 2), 
+        max_df=0.85, 
+        min_df=1, 
+        stop_words=None # Pode ser personalizado com uma lista de stop words
+    )
+    
+    logger.info(f"Criando matriz TF-IDF para {len(corpus)} documentos...")
+    tfidf_matrix = vectorizer.fit_transform(corpus)
+    logger.info(f"Matriz criada com shape: {tfidf_matrix.shape}")
+
+    # Salvar os artefatos do índice
     try:
-        with open(idx_path, "w", encoding="utf-8") as f:
-            json.dump(out_obj, f, ensure_ascii=False, indent=2)
-        logger.info(f"Índice salvo em {idx_path} (termos: {len(serializable)})")
+        joblib.dump(vectorizer, index_dir / "tfidf_vectorizer.joblib")
+        joblib.dump(tfidf_matrix, index_dir / "tfidf_matrix.joblib")
+        with open(index_dir / "metadata.json", "w", encoding="utf-8") as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+        logger.info(f"Índice TF-IDF salvo em {index_dir}")
     except Exception as e:
-        logger.exception(f"Erro ao salvar índice em {idx_path}: {e}")
+        logger.exception(f"Erro ao salvar índice TF-IDF: {e}")
         raise
 
-    return idx_path
+    return index_dir
 
 
-def query_index(index_path: Path, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-    """Consulta o índice e retorna referências ordenadas por score simples.
+def query_index(index_dir: Path, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Consulta o índice TF-IDF e retorna os chunks mais relevantes.
 
-    Score: soma das ocorrências dos termos da query em cada referência.
+    Args:
+        index_dir: Diretório onde o índice TF-IDF está salvo.
+        query: A string de busca.
+        top_k: O número de resultados a retornar.
+
+    Returns:
+        Uma lista de dicionários, cada um contendo o metadado do chunk e o score de similaridade.
     """
-    index_path = Path(index_path)
+    if cosine_similarity is None:
+        raise RuntimeError("scikit-learn não está instalado.")
+
     try:
-        with open(index_path, "r", encoding="utf-8") as f:
-            idx = json.load(f)
+        vectorizer = joblib.load(index_dir / "tfidf_vectorizer.joblib")
+        tfidf_matrix = joblib.load(index_dir / "tfidf_matrix.joblib")
+        with open(index_dir / "metadata.json", "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+    except FileNotFoundError:
+        logger.error(f"Índice não encontrado em {index_dir}. Execute a indexação primeiro.")
+        return []
     except Exception as e:
-        logger.error(f"Falha ao ler índice {index_path}: {e}")
+        logger.exception(f"Erro ao carregar índice de {index_dir}: {e}")
         return []
 
-    postings = idx.get("postings", {})
-    terms = _normalize(query)
-    scores: Dict[str, Dict[str, Any]] = {}
+    if not query.strip():
+        return []
 
-    for term in terms:
-        for ref in postings.get(term, []):
-            key = f"{ref['json']}|{ref['doc_pos']}|{ref.get('chunk_index',0)}"
-            if key not in scores:
-                scores[key] = {**ref, "score": 0}
-            scores[key]["score"] += int(ref.get("occurrences", 1))
+    # Transformar a query usando o mesmo vectorizer
+    query_vector = vectorizer.transform([query])
 
-    # Ordenar por score desc e retornar top_k
-    ranked = sorted(scores.values(), key=lambda r: r.get("score", 0), reverse=True)
-    return ranked[:top_k]
+    # Calcular similaridade de cosseno
+    cosine_similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
+
+    # Obter os top_k resultados
+    # argsort retorna os índices do menor para o maior, então pegamos os últimos k e invertemos
+    relevant_indices = cosine_similarities.argsort()[-top_k:][::-1]
+
+    results = []
+    for i in relevant_indices:
+        # Ignorar resultados com score muito baixo
+        if cosine_similarities[i] > 0.01:
+            result = metadata[i]
+            result["score"] = float(cosine_similarities[i])
+            results.append(result)
+            
+    return results

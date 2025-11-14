@@ -373,18 +373,21 @@ class EnhancedApp:
 
             self.set_progress("Gerando JSONs...")
         try:
-            json_files = chunker.chunk_and_write(docs, Path(out_dir), max_bytes, embed_index=self.embed_index_var.get())
+            # O parâmetro embed_index não é mais necessário com o índice TF-IDF global.
+            json_files = chunker.chunk_and_write(docs, Path(out_dir), max_bytes, embed_index=False)
             logger.info(f"JSONs written to {out_dir}: {json_files}")
             summary_lines = [f"{len(json_files)} arquivo(s) JSON gerados em {out_dir}"]
 
-            # Gerar índice invertido para acelerar buscas/recuperação
+            # Gerar índice TF-IDF para acelerar buscas/recuperação
             try:
-                idx_path = indexer.build_index(Path(out_dir), json_files)
-                if idx_path:
-                    summary_lines.append(f"Índice gerado: {idx_path.name}")
-                    logger.info(f"Índice criado em {idx_path}")
+                self.set_progress("Gerando índice TF-IDF...")
+                index_dir = indexer.build_index(Path(out_dir), [Path(f).name for f in json_files])
+                if index_dir:
+                    summary_lines.append(f"Índice TF-IDF gerado em: {index_dir.name}")
+                    logger.info(f"Índice TF-IDF criado em {index_dir}")
             except Exception as e:
-                logger.warning(f"Falha ao gerar índice: {e}")
+                logger.warning(f"Falha ao gerar índice TF-IDF: {e}")
+                summary_lines.append(f"Falha ao gerar índice: {e}")
             
             # Gerar formatos adicionais se solicitado
             if output_txt or output_pdf:
