@@ -73,7 +73,16 @@ def chunk_and_write(documents: Iterable[Dict[str, Any]], out_dir: Path, max_size
         if not batch["documents"]:
             return
 
-        out_path = out_dir / f"output_{file_index:04d}.json"
+        # Gerar nome mais descritivo baseado no primeiro documento do batch
+        first_doc = batch["documents"][0]
+        doc_name = first_doc.get("filename", "documento")
+        # Remover extensão e caracteres problemáticos
+        doc_name = Path(doc_name).stem
+        doc_name = "".join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in doc_name)
+        doc_name = doc_name[:50]  # Limitar tamanho
+        
+        # Formato: batch_XXXX_nome-do-documento.json
+        out_path = out_dir / f"batch_{file_index:04d}_{doc_name}.json"
         try:
             # Se solicitado, construir índice local para o batch antes de salvar
             if embed_index and batch.get("documents"):

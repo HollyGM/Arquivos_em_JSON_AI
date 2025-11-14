@@ -110,7 +110,7 @@ class EnhancedApp:
         ttk.Checkbutton(formats_inner, text="MRD", variable=self.output_mrd_var).pack(side=tk.LEFT, padx=10)
 
         self.embed_index_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(formats_inner, text="Incluir índice de documentos nos arquivos de saída", variable=self.embed_index_var).pack(side=tk.LEFT, padx=10)
+        ttk.Checkbutton(formats_inner, text="Incluir índices (local nos arquivos + TF-IDF global para buscas)", variable=self.embed_index_var).pack(side=tk.LEFT, padx=10)
 
         # Progress e controles
         self.progress = ttk.Label(frm, text="Pronto")
@@ -384,16 +384,18 @@ class EnhancedApp:
             logger.info(f"JSONs written to {out_dir}: {json_files}")
             summary_lines = [f"{len(json_files)} arquivo(s) JSON gerados em {out_dir}"]
 
-            # Gerar índice TF-IDF para acelerar buscas/recuperação
-            try:
-                self.set_progress("Gerando índice TF-IDF...")
-                index_dir = indexer.build_index(Path(out_dir), [Path(f).name for f in json_files])
-                if index_dir:
-                    summary_lines.append(f"Índice TF-IDF gerado em: {index_dir.name}")
-                    logger.info(f"Índice TF-IDF criado em {index_dir}")
-            except Exception as e:
-                logger.warning(f"Falha ao gerar índice TF-IDF: {e}")
-                summary_lines.append(f"Falha ao gerar índice: {e}")
+            # Gerar índice TF-IDF global apenas se o checkbox estiver marcado
+            include_index = self.embed_index_var.get()
+            if include_index:
+                try:
+                    self.set_progress("Gerando índice TF-IDF global...")
+                    index_dir = indexer.build_index(Path(out_dir), [Path(f).name for f in json_files])
+                    if index_dir:
+                        summary_lines.append(f"Índice TF-IDF global gerado em: {index_dir.name}")
+                        logger.info(f"Índice TF-IDF criado em {index_dir}")
+                except Exception as e:
+                    logger.warning(f"Falha ao gerar índice TF-IDF: {e}")
+                    summary_lines.append(f"Falha ao gerar índice: {e}")
             
             # Gerar formatos adicionais se solicitado
             if output_txt or output_pdf:
@@ -401,7 +403,7 @@ class EnhancedApp:
                 try:
                     from converter.output_formats import convert_json_files
                     
-                    # Obter configuração do índice
+                    # Obter configuração do índice (para TXT e PDF)
                     include_index = self.embed_index_var.get()
                     
                     txt_paths = []
@@ -421,7 +423,8 @@ class EnhancedApp:
                         logger.info("PDF generated")
                     if self.output_mrd_var.get():
                         mrd_dir = Path(out_dir) / 'mrd_output'
-                        mrd_paths = convert_json_files(out_dir, 'mrd', mrd_dir, json_files=json_files, embed_index=include_index)
+                        # MRD sempre inclui índice local simples para navegação
+                        mrd_paths = convert_json_files(out_dir, 'mrd', mrd_dir, json_files=json_files, embed_index=True)
                         if mrd_paths:
                             summary_lines.append(f"{len(mrd_paths)} arquivo(s) MRD em {mrd_dir}")
                         logger.info("MRD generated")

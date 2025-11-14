@@ -42,7 +42,8 @@ def build_index(out_dir: Path, json_files: List[str]) -> Path:
     if TfidfVectorizer is None:
         raise RuntimeError("scikit-learn não está instalado. Execute: pip install scikit-learn")
 
-    index_dir = out_dir / "tfidf_index"
+    # Nome mais descritivo para o diretório do índice
+    index_dir = out_dir / "indice_busca_tfidf"
     index_dir.mkdir(exist_ok=True)
 
     corpus = []
