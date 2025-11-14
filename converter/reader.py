@@ -55,29 +55,88 @@ def read_txt(path: Path) -> str:
 
 
 def read_pdf(path: Path) -> str:
+    """Extrai texto de um arquivo PDF.
+
+    Args:
+        path: Caminho para o arquivo PDF
+
+    Returns:
+        Texto extraído do PDF
+
+    Raises:
+        RuntimeError: Se pdfminer.six não estiver instalado
+        Exception: Para outros erros durante extração
+    """
     if extract_text_from_pdf is None:
-        raise RuntimeError("Dependência pdfminer.six não encontrada — instale via pip install pdfminer.six")
-    text = extract_text_from_pdf(str(path))
-    return text or ""
+        raise RuntimeError(
+            "Dependência pdfminer.six não encontrada.\n"
+            "Instale com: pip install pdfminer.six"
+        )
+    try:
+        text = extract_text_from_pdf(str(path))
+        return text or ""
+    except Exception as e:
+        logger.error(f"Erro ao extrair texto do PDF {path}: {e}")
+        raise RuntimeError(f"Falha ao processar PDF {path.name}: {e}") from e
 
 
 def read_docx(path: Path) -> str:
+    """Extrai texto de um arquivo DOCX.
+
+    Args:
+        path: Caminho para o arquivo DOCX
+
+    Returns:
+        Texto extraído do documento
+
+    Raises:
+        RuntimeError: Se python-docx não estiver instalado ou houver erro de leitura
+    """
     if docx is None:
-        raise RuntimeError("Dependência python-docx não encontrada — instale via pip install python-docx")
-    doc = docx.Document(str(path))
-    paragraphs = [p.text for p in doc.paragraphs]
-    return "\n".join(paragraphs)
+        raise RuntimeError(
+            "Dependência python-docx não encontrada.\n"
+            "Instale com: pip install python-docx"
+        )
+    try:
+        doc = docx.Document(str(path))
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n\n".join(paragraphs)
+    except Exception as e:
+        logger.error(f"Erro ao extrair texto do DOCX {path}: {e}")
+        raise RuntimeError(f"Falha ao processar DOCX {path.name}: {e}") from e
 
 
 def read_doc_fallback(path: Path) -> str:
-    """Tentar ler .doc com textract (melhor esforço)."""
+    """Tenta ler arquivo .doc antigo com textract (melhor esforço).
+
+    Args:
+        path: Caminho para o arquivo DOC
+
+    Returns:
+        Texto extraído do documento
+
+    Raises:
+        RuntimeError: Se textract não estiver disponível ou falhar
+    """
     if textract is None:
-        raise RuntimeError("Leitura de .doc não disponível: instale textract (e dependências do sistema) para suportar .doc")
-    data = textract.process(str(path))
+        raise RuntimeError(
+            "Leitura de .doc não disponível.\n"
+            "Instale textract e dependências do sistema para suportar arquivos .doc antigos.\n"
+            "Nota: Considere converter .doc para .docx usando Microsoft Word ou LibreOffice."
+        )
     try:
-        return data.decode("utf-8", errors="replace")
-    except Exception:
-        return str(data)
+        data = textract.process(str(path))
+        try:
+            return data.decode("utf-8", errors="replace")
+        except Exception:
+            return str(data)
+    except Exception as e:
+        logger.error(f"Erro ao processar arquivo DOC {path}: {e}")
+        raise RuntimeError(
+            f"Falha ao processar arquivo DOC {path.name}.\n"
+            f"Erro: {e}\n"
+            f"Dica: Converta o arquivo para .docx usando Word ou LibreOffice."
+        ) from e
 
 
 def extract_text(path: str, use_ocr: bool = False, clean_special_chars: bool = True) -> str:
@@ -88,42 +147,68 @@ def extract_text(path: str, use_ocr: bool = False, clean_special_chars: bool = T
         use_ocr: Se deve usar OCR para PDFs (força OCR ou detecta automaticamente)
         clean_special_chars: Se deve limpar caracteres especiais
 
-    Lança RuntimeError com mensagem amigável quando dependência ausente.
+    Returns:
+        Texto extraído do documento
+
+    Raises:
+        ValueError: Se a extensão do arquivo não for suportada
+        RuntimeError: Se dependências necessárias não estiverem instaladas
+        FileNotFoundError: Se o arquivo não existir
     """
     p = Path(path)
+
+    # Validar existência do arquivo
+    if not p.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {path}")
+
+    if not p.is_file():
+        raise ValueError(f"Caminho não é um arquivo: {path}")
+
     ext = p.suffix.lower()
-    if ext == ".txt":
-        text = read_txt(p)
-    elif ext == ".pdf":
-        if use_ocr:
-            # Usar OCR para PDFs
-            try:
-                from .ocr import extract_text_with_ocr
-                text = extract_text_with_ocr(str(path), force_ocr=True, clean_special_chars=clean_special_chars)
-            except ImportError:
-                logger.warning("Módulo OCR não disponível, usando extração normal")
+    logger.info(f"Extraindo texto de {p.name} (tipo: {ext})")
+
+    try:
+        if ext == ".txt":
+            text = read_txt(p)
+        elif ext == ".pdf":
+            if use_ocr:
+                # Usar OCR para PDFs
+                try:
+                    from .ocr import extract_text_with_ocr
+                    text = extract_text_with_ocr(str(path), force_ocr=True, clean_special_chars=clean_special_chars)
+                except ImportError:
+                    logger.warning("Módulo OCR não disponível, usando extração normal")
+                    text = read_pdf(p)
+                except Exception as e:
+                    logger.warning(f"OCR falhou para {path}: {e}, usando extração normal")
+                    text = read_pdf(p)
+            else:
                 text = read_pdf(p)
-            except Exception as e:
-                logger.warning(f"OCR falhou para {path}: {e}, usando extração normal")
-                text = read_pdf(p)
+        elif ext == ".docx":
+            text = read_docx(p)
+        elif ext == ".doc":
+            text = read_doc_fallback(p)
         else:
-            text = read_pdf(p)
-    elif ext == ".docx":
-        text = read_docx(p)
-    elif ext == ".doc":
-        text = read_doc_fallback(p)
-    else:
-        raise ValueError(f"Extensão não suportada: {ext}")
-    
-    # Aplicar limpeza de caracteres se solicitado
-    if clean_special_chars and ext != ".pdf":  # PDF com OCR já aplica limpeza
-        try:
-            from .ocr import clean_text
-            text = clean_text(text)
-        except ImportError:
-            pass  # Se módulo OCR não disponível, manter texto original
-    
-    return text
+            supported_formats = [".txt", ".pdf", ".docx", ".doc"]
+            raise ValueError(
+                f"Extensão não suportada: {ext}\n"
+                f"Formatos suportados: {', '.join(supported_formats)}"
+            )
+
+        # Aplicar limpeza de caracteres se solicitado
+        if clean_special_chars and ext != ".pdf":  # PDF com OCR já aplica limpeza
+            try:
+                from .ocr import clean_text
+                text = clean_text(text)
+            except ImportError:
+                pass  # Se módulo OCR não disponível, manter texto original
+
+        logger.info(f"Texto extraído com sucesso: {len(text)} caracteres")
+        return text
+
+    except Exception as e:
+        logger.error(f"Erro ao extrair texto de {path}: {e}")
+        raise
 
 
 def is_supported(path: str) -> bool:

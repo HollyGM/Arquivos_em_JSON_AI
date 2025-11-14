@@ -15,7 +15,7 @@ import threading
 import os
 import sys
 import logging
-from converter import reader, chunker
+from converter import reader, chunker, indexer
 
 logging.basicConfig(level=logging.INFO, filename='gui_debug.log', filemode='w', format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -105,6 +105,12 @@ class EnhancedApp:
 
         self.output_pdf_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(formats_inner, text="PDF", variable=self.output_pdf_var).pack(side=tk.LEFT, padx=10)
+
+        self.output_mrd_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(formats_inner, text="MRD", variable=self.output_mrd_var).pack(side=tk.LEFT, padx=10)
+
+        self.embed_index_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(formats_inner, text="Incluir índice local nos JSONs", variable=self.embed_index_var).pack(side=tk.LEFT, padx=10)
 
         # Progress e controles
         self.progress = ttk.Label(frm, text="Pronto")
@@ -365,11 +371,20 @@ class EnhancedApp:
             messagebox.showerror("Erro", error_msg)
             return
 
-        self.set_progress("Gerando JSONs...")
+            self.set_progress("Gerando JSONs...")
         try:
-            json_files = chunker.chunk_and_write(docs, Path(out_dir), max_bytes)
+            json_files = chunker.chunk_and_write(docs, Path(out_dir), max_bytes, embed_index=self.embed_index_var.get())
             logger.info(f"JSONs written to {out_dir}: {json_files}")
             summary_lines = [f"{len(json_files)} arquivo(s) JSON gerados em {out_dir}"]
+
+            # Gerar índice invertido para acelerar buscas/recuperação
+            try:
+                idx_path = indexer.build_index(Path(out_dir), json_files)
+                if idx_path:
+                    summary_lines.append(f"Índice gerado: {idx_path.name}")
+                    logger.info(f"Índice criado em {idx_path}")
+            except Exception as e:
+                logger.warning(f"Falha ao gerar índice: {e}")
             
             # Gerar formatos adicionais se solicitado
             if output_txt or output_pdf:
@@ -391,6 +406,12 @@ class EnhancedApp:
                         if pdf_paths:
                             summary_lines.append(f"{len(pdf_paths)} arquivo(s) PDF em {pdf_dir}")
                         logger.info("PDF generated")
+                    if self.output_mrd_var.get():
+                        mrd_dir = Path(out_dir) / 'mrd_output'
+                        mrd_paths = convert_json_files(out_dir, 'mrd', mrd_dir, json_files=json_files)
+                        if mrd_paths:
+                            summary_lines.append(f"{len(mrd_paths)} arquivo(s) MRD em {mrd_dir}")
+                        logger.info("MRD generated")
                         
                 except ImportError:
                     logger.warning("Módulo de formatos de saída não disponível")

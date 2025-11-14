@@ -10,6 +10,8 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+from collections import defaultdict
+import re
 
 try:
     from reportlab.lib.pagesizes import letter, A4
@@ -114,9 +116,9 @@ def json_to_pdf(json_data: Dict[str, Any], output_path: str = None) -> str:
     
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Criar documento PDF
-    doc = SimpleDocTemplate(
+    pdf_doc = SimpleDocTemplate(
         str(output_path),
         pagesize=A4,
         rightMargin=72,
@@ -185,14 +187,22 @@ def json_to_pdf(json_data: Dict[str, Any], output_path: str = None) -> str:
         content.append(Paragraph("<b>CONTEÚDO:</b>", styles['Normal']))
         text = doc.get('text', '')
         if text:
-            # Dividir texto longo em parágrafos
-            paragraphs = text.split('\\n\\n')
+            # Dividir texto longo em parágrafos (usar \n\n real, não string literal)
+            paragraphs = text.split('\n\n')
             for para in paragraphs:
                 if para.strip():
                     # Escapar caracteres especiais para XML
                     para_escaped = para.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                    content.append(Paragraph(para_escaped, styles['Normal']))
-                    content.append(Spacer(1, 6))
+                    # Substituir quebras de linha simples por <br/> tags
+                    para_escaped = para_escaped.replace('\n', '<br/>')
+                    try:
+                        content.append(Paragraph(para_escaped, styles['Normal']))
+                        content.append(Spacer(1, 6))
+                    except Exception as e:
+                        # Se o parágrafo falhar, adicionar como texto simples truncado
+                        logger.warning(f"Erro ao adicionar parágrafo: {e}")
+                        safe_text = para[:500] + "..." if len(para) > 500 else para
+                        content.append(Paragraph(safe_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), styles['Normal']))
         else:
             content.append(Paragraph("(Sem conteúdo de texto)", styles['Italic']))
         
@@ -201,9 +211,78 @@ def json_to_pdf(json_data: Dict[str, Any], output_path: str = None) -> str:
             content.append(PageBreak())
     
     # Construir PDF
-    doc.build(content)
-    
+    pdf_doc.build(content)
+
     logger.info(f"Arquivo PDF criado: {output_path}")
+    return str(output_path)
+
+
+def json_to_mrd(json_data: Dict[str, Any], output_path: str = None, embed_index: bool = True) -> str:
+    """Converte um JSON de batch para um MRD (machine-readable document) com índice local.
+
+    MRD é um JSON enriquecido com metadados e um índice local (term -> referências)
+    que facilita buscas rápidas pela IA sem depender exclusivamente de um índice global.
+
+    Args:
+        json_data: Dados do batch (mesmo formato gerado pelo chunker)
+        output_path: Caminho do arquivo MRD (opcional). Se omitido, usa timestamp.
+        embed_index: Se True, inclui um índice local dentro do MRD.
+
+    Returns:
+        Caminho do arquivo MRD criado (string)
+    """
+    if output_path is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = f"output_{timestamp}.mrd.json"
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Construir o objeto MRD básico
+    mrd = {
+        "mrd_version": "1.0",
+        "created_at": json_data.get("created_at") or datetime.utcnow().isoformat() + "Z",
+        "batch_id": json_data.get("batch_id"),
+        "documents": json_data.get("documents", []),
+    }
+
+    # Embutir índice local simples (inverted index) se solicitado
+    if embed_index:
+        postings = defaultdict(list)
+        token_re = re.compile(r"\w+", re.UNICODE)
+        docs = mrd["documents"]
+        for pos, doc in enumerate(docs):
+            text = doc.get("text", "") or ""
+            tokens = token_re.findall(text.lower())
+            if not tokens:
+                continue
+            # Contar ocorrências por termo no documento
+            counts = {}
+            for t in tokens:
+                counts[t] = counts.get(t, 0) + 1
+            ref = {
+                "doc_pos": pos,
+                "chunk_index": doc.get("chunk_index", 0),
+                "filename": doc.get("filename"),
+                "char_count": doc.get("char_count", len(text)),
+            }
+            for term, freq in counts.items():
+                entry = dict(ref)
+                entry["occurrences"] = freq
+                postings[term].append(entry)
+
+        # serializar postings
+        mrd["local_index"] = {k: v for k, v in postings.items()}
+
+    # Salvar MRD
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(mrd, f, ensure_ascii=False, indent=2)
+        logger.info(f"Arquivo MRD criado: {output_path}")
+    except Exception as e:
+        logger.error(f"Erro ao criar MRD {output_path}: {e}")
+        raise
+
     return str(output_path)
 
 
@@ -246,8 +325,8 @@ def convert_json_files(
         try:
             logger.info(f"Convertendo {json_file.name} para {output_format.upper()}")
             
-            # Carregar dados JSON
-            with open(json_file, 'r', encoding='utf-8') as f:
+            # Carregar dados JSON (usar utf-8-sig para lidar com BOM)
+            with open(json_file, 'r', encoding='utf-8-sig') as f:
                 json_data = json.load(f)
             
             # Definir arquivo de saída
@@ -259,6 +338,9 @@ def convert_json_files(
                 result_path = json_to_txt(json_data, str(output_path))
             elif output_format.lower() == 'pdf':
                 result_path = json_to_pdf(json_data, str(output_path))
+            elif output_format.lower() == 'mrd':
+                # MRD inclui índice local por batch
+                result_path = json_to_mrd(json_data, str(output_path), embed_index=True)
             else:
                 logger.error(f"Formato não suportado: {output_format}")
                 continue

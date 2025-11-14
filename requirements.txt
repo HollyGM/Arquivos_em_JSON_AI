@@ -1,13 +1,46 @@
-pdfminer.six>=20200726
-python-docx>=0.8.11
-chardet>=4.0.0
-tqdm>=4.0.0
-pytest>=6.0
-# OCR dependencies
+# ============================================================
+# Conversor de Documentos para JSON - Dependências
+# ============================================================
+
+# Processamento de PDFs
+pdfminer.six>=20221105
+
+# Processamento de documentos Word
+python-docx>=1.1.0
+
+# Detecção de encoding
+chardet>=5.2.0
+
+# Barra de progresso (opcional para CLI)
+tqdm>=4.66.0
+
+# Testes
+pytest>=7.4.0
+
+# ============================================================
+# Dependências para OCR (Opcional mas recomendado)
+# ============================================================
+
+# OCR - Tesseract
 pytesseract>=0.3.10
-Pillow>=8.0.0
+
+# Processamento de imagens
+Pillow>=10.0.0
+
+# Conversão de PDF para imagem (necessário para OCR)
 pdf2image>=1.16.0
-# Output format generation
-reportlab>=3.6.0
-# Optional, for better .doc support (may require system deps)
+
+# ============================================================
+# Geração de documentos de saída
+# ============================================================
+
+# Geração de PDFs
+reportlab>=4.0.0
+
+# ============================================================
+# Dependências opcionais avançadas
+# ============================================================
+
+# Para melhor suporte a arquivos .doc antigos (Windows/Linux com dependências do sistema)
+# Descomente se necessário:
 # textract>=1.6.5
