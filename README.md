@@ -2,6 +2,8 @@
 
 Conversor robusto e otimizado que transforma arquivos de texto (TXT, PDF, DOCX, DOC) em JSONs estruturados, ideal para uso como base de conhecimento por modelos de IA e RAG (Retrieval-Augmented Generation).
 
+> **✨ Novidade v2.1**: Detecção de encoding otimizada! Caracteres especiais portugueses (á, é, ã, ç) agora são preservados corretamente. UTF-8 é detectado de forma determinística, garantindo texto sem corrupção.
+
 ## 🚀 Funcionalidades Principais
 
 ### Conversão de Documentos
@@ -13,7 +15,7 @@ Conversor robusto e otimizado que transforma arquivos de texto (TXT, PDF, DOCX, 
 ### Processamento Avançado
 - **OCR em PDFs**: Extração de texto de PDFs escaneados usando Tesseract
 - **Limpeza de texto**: Remoção automática de caracteres especiais e normalização
-- **Detecção de encoding**: Suporte automático para diferentes codificações de texto
+- **Detecção de encoding otimizada**: UTF-8 primeiro para máxima precisão com caracteres especiais, com fallback automático para outras codificações
 - **Tratamento robusto de erros**: Logs detalhados e mensagens de erro claras
 
 ### Formatos de Saída
@@ -171,8 +173,9 @@ Arquivos_em_JSON_AI/
 - Ou diminua para dividir em mais arquivos menores
 
 ### Caracteres estranhos no texto
-- Habilite "Limpar caracteres especiais" na GUI
-- Ou remova `--no-clean` no CLI
+- **Arquivos UTF-8**: A partir da versão 2.1, arquivos UTF-8 são detectados automaticamente e caracteres especiais (á, é, ã, ç) são preservados corretamente
+- **Limpeza opcional**: Habilite "Limpar caracteres especiais" na GUI ou remova `--no-clean` no CLI para normalizar espaços e remover caracteres de controle
+- **Arquivos antigos**: Para arquivos com codificações antigas (latin-1, ISO-8859-1), o sistema detecta automaticamente e faz a conversão apropriada
 
 ## 📝 Logs e Debug
 
@@ -201,5 +204,16 @@ Este projeto é fornecido como está, sem garantias. Use por sua conta e risco.
 
 ---
 
-**Versão**: 2.0
-**Última atualização**: 2025-01-15
+**Versão**: 2.1
+**Última atualização**: 2025-12-09
+
+## 📋 Changelog
+
+### v2.1 (2025-12-09)
+- **Correção crítica**: Fixado bug de codificação UTF-8 que corrompia caracteres especiais portugueses (á, é, ã, ç)
+- **Melhoria de desempenho**: Detecção de encoding otimizada - UTF-8 primeiro, fallback para outras codificações apenas quando necessário
+- **Maior confiabilidade**: Detecção determinística de UTF-8 em vez de probabilística, eliminando corrupção de texto
+- **Testes aprimorados**: Adicionados testes abrangentes para caracteres especiais portugueses
+
+### v2.0 (2025-01-15)
+- Versão inicial com suporte a múltiplos formatos e OCR
