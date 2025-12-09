@@ -30,6 +30,10 @@ except Exception:
 
 logger = logging.getLogger(__name__)
 
+# Minimum confidence threshold for chardet encoding detection
+# If confidence is below this, UTF-8 is tried first as it's the most common encoding
+ENCODING_CONFIDENCE_THRESHOLD = 0.9
+
 
 def read_txt(path: Path) -> str:
     """Lê arquivo .txt tentando detectar encoding.
@@ -44,14 +48,14 @@ def read_txt(path: Path) -> str:
         enc = detection.get("encoding") or "utf-8"
         confidence = detection.get("confidence", 0)
         
-        # Se a confiança da detecção for baixa, tentar UTF-8 primeiro
-        # UTF-8 é o encoding mais comum atualmente e deve ser preferido
-        # quando não há certeza sobre o encoding detectado
-        if confidence < 0.9:
+        # If detection confidence is low, try UTF-8 first
+        # UTF-8 is the most common modern encoding and should be preferred
+        # when there's uncertainty about the detected encoding
+        if confidence < ENCODING_CONFIDENCE_THRESHOLD:
             try:
                 return raw.decode("utf-8")
             except (UnicodeDecodeError, AttributeError):
-                # Se UTF-8 falhar, usar o encoding detectado pelo chardet
+                # If UTF-8 fails, use the encoding detected by chardet
                 pass
         
         try:
