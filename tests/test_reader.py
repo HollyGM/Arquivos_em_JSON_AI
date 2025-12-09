@@ -20,7 +20,12 @@ def test_read_txt_utf8_with_special_chars(tmp_path):
     p = tmp_path / "portuguese_text.txt"
     
     # Create a file with various Portuguese special characters
-    content = "Olá mundo\nEste é um texto em português.\nCaracteres especiais: á é í ó ú ã õ ç\nAcentuação: ÀÁÂÃÄÅÈÉÊË"
+    content = (
+        "Olá mundo\n"
+        "Este é um texto em português.\n"
+        "Caracteres especiais: á é í ó ú ã õ ç\n"
+        "Acentuação: ÀÁÂÃÄÅÈÉÊË"
+    )
     p.write_text(content, encoding='utf-8')
     
     # Extract text (clean_special_chars=True is default, which normalizes whitespace)
@@ -46,11 +51,13 @@ def test_read_txt_latin1_fallback(tmp_path):
         f.write(content)
     
     # Extract text - should handle latin-1 gracefully
-    text = reader.extract_text(str(p))
+    text = reader.extract_text(str(p), clean_special_chars=False)
     
-    # Text should be readable (might have replacements for invalid UTF-8)
+    # Verify the text is readable and contains expected content
+    # Latin-1 should be correctly decoded when UTF-8 fails
     assert "Texto" in text
-    assert "cafe" in text.lower() or "café" in text
+    assert "café" in text
+    assert "São Paulo" in text
 
 
 def test_read_txt_empty_file(tmp_path):
