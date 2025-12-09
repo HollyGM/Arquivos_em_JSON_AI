@@ -60,3 +60,11 @@ def test_read_txt_empty_file(tmp_path):
     
     text = reader.extract_text(str(p))
     assert text == ""
+
+
+def test_read_txt_nonexistent_file(tmp_path):
+    """Test that reading a non-existent file raises FileNotFoundError."""
+    p = tmp_path / "nonexistent.txt"
+    
+    with pytest.raises(FileNotFoundError):
+        reader.extract_text(str(p))

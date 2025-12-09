@@ -48,18 +48,18 @@ def read_txt(path: Path) -> str:
                     raw = f.read()
                 enc = chardet.detect(raw).get("encoding") or "latin-1"
                 return raw.decode(enc, errors="replace")
-            except Exception:
-                # Se chardet falhar, usar latin-1 como fallback final
+            except (UnicodeDecodeError, AttributeError):
+                # Se chardet falhar ou retornar encoding inválido, usar latin-1 como fallback
                 with open(path, "r", encoding="latin-1", errors="replace") as f:
                     return f.read()
         else:
             # chardet não disponível, usar latin-1 como fallback
             with open(path, "r", encoding="latin-1", errors="replace") as f:
                 return f.read()
-    except Exception:
-        # Para outros erros (não relacionados a encoding), usar latin-1
-        with open(path, "r", encoding="latin-1", errors="replace") as f:
-            return f.read()
+    except (OSError, IOError) as e:
+        # Erros de I/O (arquivo não encontrado, sem permissão, etc.) devem ser propagados
+        logger.error(f"Erro ao ler arquivo {path}: {e}")
+        raise
 
 
 def read_pdf(path: Path) -> str:
