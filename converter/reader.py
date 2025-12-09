@@ -36,22 +36,31 @@ def read_txt(path: Path) -> str:
 
     Retorna string com todo o texto (strip preservado).
     """
-    # Tentar detectar encoding com chardet se disponível
-    if chardet:
-        with open(path, "rb") as f:
-            raw = f.read()
-        enc = chardet.detect(raw).get("encoding") or "utf-8"
-        try:
-            return raw.decode(enc, errors="replace")
-        except Exception:
-            return raw.decode("utf-8", errors="replace")
-    # fallback
+    # Tentar UTF-8 primeiro (encoding mais comum para arquivos modernos)
     try:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
-    except Exception:
-        with open(path, "r", encoding="latin-1", errors="replace") as f:
-            return f.read()
+    except UnicodeDecodeError:
+        # UTF-8 falhou, tentar detectar encoding com chardet se disponível
+        if chardet:
+            try:
+                with open(path, "rb") as f:
+                    raw = f.read()
+                enc = chardet.detect(raw).get("encoding") or "latin-1"
+                return raw.decode(enc, errors="replace")
+            except (UnicodeDecodeError, LookupError):
+                # UnicodeDecodeError: se chardet retornar encoding inválido
+                # LookupError: se o nome do codec não for reconhecido pelo Python
+                with open(path, "r", encoding="latin-1", errors="replace") as f:
+                    return f.read()
+        else:
+            # chardet não disponível, usar latin-1 como fallback
+            with open(path, "r", encoding="latin-1", errors="replace") as f:
+                return f.read()
+    except OSError:
+        # Erros de I/O (arquivo não encontrado, sem permissão, etc.) devem ser propagados
+        # O caller (extract_text) fará o log apropriado
+        raise
 
 
 def read_pdf(path: Path) -> str:
