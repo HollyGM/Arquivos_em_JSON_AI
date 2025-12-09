@@ -57,7 +57,7 @@ def read_txt(path: Path) -> str:
             # chardet não disponível, usar latin-1 como fallback
             with open(path, "r", encoding="latin-1", errors="replace") as f:
                 return f.read()
-    except (OSError, IOError):
+    except OSError:
         # Erros de I/O (arquivo não encontrado, sem permissão, etc.) devem ser propagados
         # O caller (extract_text) fará o log apropriado
         raise
