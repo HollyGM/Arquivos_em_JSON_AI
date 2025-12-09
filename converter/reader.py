@@ -40,7 +40,20 @@ def read_txt(path: Path) -> str:
     if chardet:
         with open(path, "rb") as f:
             raw = f.read()
-        enc = chardet.detect(raw).get("encoding") or "utf-8"
+        detection = chardet.detect(raw)
+        enc = detection.get("encoding") or "utf-8"
+        confidence = detection.get("confidence", 0)
+        
+        # Se a confiança da detecção for baixa, tentar UTF-8 primeiro
+        # UTF-8 é o encoding mais comum atualmente e deve ser preferido
+        # quando não há certeza sobre o encoding detectado
+        if confidence < 0.9:
+            try:
+                return raw.decode("utf-8")
+            except (UnicodeDecodeError, AttributeError):
+                # Se UTF-8 falhar, usar o encoding detectado pelo chardet
+                pass
+        
         try:
             return raw.decode(enc, errors="replace")
         except Exception:
