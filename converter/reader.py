@@ -48,8 +48,9 @@ def read_txt(path: Path) -> str:
                     raw = f.read()
                 enc = chardet.detect(raw).get("encoding") or "latin-1"
                 return raw.decode(enc, errors="replace")
-            except (UnicodeDecodeError, AttributeError):
-                # Se chardet falhar ou retornar encoding inválido, usar latin-1 como fallback
+            except (UnicodeDecodeError, LookupError):
+                # UnicodeDecodeError: se chardet retornar encoding inválido
+                # LookupError: se o nome do codec não for reconhecido pelo Python
                 with open(path, "r", encoding="latin-1", errors="replace") as f:
                     return f.read()
         else:
